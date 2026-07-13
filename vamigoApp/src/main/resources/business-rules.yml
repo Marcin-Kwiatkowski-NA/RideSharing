@@ -58,9 +58,12 @@ message-email:
   delay-minutes: ${MESSAGE_EMAIL_DELAY_MINUTES:10}
   check-interval-ms: ${MESSAGE_EMAIL_CHECK_INTERVAL_MS:120000}
 
-external-import:
-  notify-address: ${EXTERNAL_IMPORT_NOTIFY_ADDRESS:blaskszminkii@gmail.com}
-  min-matching-results: ${EXTERNAL_IMPORT_MIN_MATCHING_RESULTS:4}
+# Emails an ops address when an external (scraped) ride/seat is imported and
+# enough opposite-side matches are found. Disabled by default.
+external-match-notification:
+  enabled: ${EXTERNAL_MATCH_NOTIFICATION_ENABLED:false}
+  notify-address: ${EXTERNAL_MATCH_NOTIFICATION_ADDRESS:blaskszminkii@gmail.com}
+  min-matching-results: ${EXTERNAL_MATCH_NOTIFICATION_MIN_RESULTS:4}
 
 location:
   overrides:

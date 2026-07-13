@@ -44,7 +44,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Component
-@EnableConfigurationProperties(ExternalImportProperties.class)
+@EnableConfigurationProperties(ExternalMatchNotificationProperties.class)
 public class ExternalImportMatchListener {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ExternalImportMatchListener.class);
@@ -56,7 +56,7 @@ public class ExternalImportMatchListener {
     private final SeatService seatService;
     private final RideService rideService;
     private final BrevoClient brevoClient;
-    private final ExternalImportProperties importProperties;
+    private final ExternalMatchNotificationProperties notificationProperties;
     private final MatchProperties matchProperties;
     private final String senderAddress;
     private final String senderName;
@@ -65,7 +65,7 @@ public class ExternalImportMatchListener {
     public ExternalImportMatchListener(SeatService seatService,
                                        RideService rideService,
                                        BrevoClient brevoClient,
-                                       ExternalImportProperties importProperties,
+                                       ExternalMatchNotificationProperties notificationProperties,
                                        MatchProperties matchProperties,
                                        @Value("${app.email.sender-address}") String senderAddress,
                                        @Value("${app.email.sender-name}") String senderName,
@@ -73,7 +73,7 @@ public class ExternalImportMatchListener {
         this.seatService = seatService;
         this.rideService = rideService;
         this.brevoClient = brevoClient;
-        this.importProperties = importProperties;
+        this.notificationProperties = notificationProperties;
         this.matchProperties = matchProperties;
         this.senderAddress = senderAddress;
         this.senderName = senderName;
@@ -90,6 +90,9 @@ public class ExternalImportMatchListener {
     @Async("emailExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onExternalRideCreated(ExternalRideCreatedEvent event) {
+        if (!notificationProperties.enabled()) {
+            return;
+        }
         LocaleContextHolder.setLocale(Locale.forLanguageTag("pl"));
         RideResponseDto ride = event.ride();
         List<RideStopDto> stops = ride.stops();
@@ -132,7 +135,7 @@ public class ExternalImportMatchListener {
             }
         }
 
-        int minRequired = involvesWien(stops) ? importProperties.minMatchingResults() : 1;
+        int minRequired = involvesWien(stops) ? notificationProperties.minMatchingResults() : 1;
         if (matchMap.size() < minRequired) {
             LOGGER.debug("Only {} matching seats for external ride {} (min {})",
                     matchMap.size(), ride.id(), minRequired);
@@ -163,6 +166,9 @@ public class ExternalImportMatchListener {
     @Async("emailExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onExternalSeatCreated(ExternalSeatCreatedEvent event) {
+        if (!notificationProperties.enabled()) {
+            return;
+        }
         LocaleContextHolder.setLocale(Locale.forLanguageTag("pl"));
         SeatResponseDto seat = event.seat();
         LocationDto origin = seat.origin();
@@ -190,7 +196,7 @@ public class ExternalImportMatchListener {
 
         Page<RideListDto> matches = rideService.searchRides(criteria, PageRequest.of(0, MAX_RESULTS));
 
-        int minRequired = involvesWien(origin, destination) ? importProperties.minMatchingResults() : 1;
+        int minRequired = involvesWien(origin, destination) ? notificationProperties.minMatchingResults() : 1;
         if (matches.getTotalElements() < minRequired) {
             LOGGER.debug("Only {} matching rides for external seat {} (min {})",
                     matches.getTotalElements(), seat.id(), minRequired);
@@ -406,7 +412,7 @@ public class ExternalImportMatchListener {
     private void sendEmail(String subject, String html, String text) {
         try {
             brevoClient.sendHtmlEmail(
-                    importProperties.notifyAddress(), "Vamigo Import",
+                    notificationProperties.notifyAddress(), "Vamigo Import",
                     senderAddress, senderName,
                     null,
                     subject, html, text);
